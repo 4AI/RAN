@@ -1,0 +1,3 @@
+langml==0.4.2
+tokenizers
+numpy
