@@ -6,4 +6,4 @@ from rannet.ran import RAN  # NOQA
 from rannet.tokenizer import RanNetWordPieceTokenizer  # NOQA
 
 
-__version__ = '0.0.1'
+__version__ = '0.1.0'
