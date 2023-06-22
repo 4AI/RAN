@@ -19,6 +19,7 @@ setup(
     version='0.1.0',
     description='Recurrent Attention Networks',
     long_description=readme,
+    long_description_content_type="text/markdown",
     author='sean lee',
     author_email='xmlee97@gmail.com',
     packages=find_packages(exclude=("tests", "tests.*", "examples", "examples.*")),
@@ -26,7 +27,6 @@ setup(
     zip_safe=False,
     keywords='rannet',
     classifiers=[
-        'Private :: Do Not Upload',
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
