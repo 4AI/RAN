@@ -7,7 +7,10 @@
       <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="RAN is released under the MIT license." />
    </a>
    <a href="https://pypi.org/project/rannet/">
-      <img src="https://badge.fury.io/py/RAN.svg?style=flat-square" alt="PyPI version" />
+      <img src="https://img.shields.io/pypi/v/rannet?style=flat-square" alt="PyPI version" />
+   </a>
+   <a href="https://pypi.org/project/rannet/">
+      <img src="https://img.shields.io/pypi/dm/rannet?style=flat-square" alt="PyPI Downloads" />
    </a>
    <a href="http://makeapullrequest.com">
       <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square" alt="http://makeapullrequest.com" />
