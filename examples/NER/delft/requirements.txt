@@ -1,0 +1,13 @@
+numpy
+regex==2021.11.10 
+scikit-learn
+tqdm
+h5py==3.6.0
+unidecode
+pydot
+lmdb
+truecase
+requests
+pandas
+pytest
+tensorflow-addons
