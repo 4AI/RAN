@@ -49,6 +49,31 @@ python -m pip install git+https://github.com/4AI/RAN.git
 
 ## 🈶 w/ pretrained models
 
+*Extract semantic feature*
+
+set `apply_cell_transform=False` to extract semantic feature.
+
+```python
+import numpy as np
+from rannet import RanNet, RanNetWordPieceTokenizer
+
+
+vocab_path = 'pretrained/vocab.txt'
+ckpt_path = 'pretrained/model.ckpt'
+config_path = 'pretrained/config.json'
+tokenizer = RanNetWordPieceTokenizer(vocab_path, lowercase=True)
+
+rannet, rannet_model = RanNet.load_rannet(
+    config_path=config_path,
+    checkpoint_path=ckpt_path,
+    return_sequences=False,
+    apply_cell_transform=False
+)
+text = 'input text'
+tok = tokenizer.encode(text)
+vec = rannet_model.predict(np.array([tok.ids]))
+```
+
 *For the classification task*
 
 ```python
