@@ -146,6 +146,6 @@ If you use our code in your research, please cite our work:
 }
 ```
 
-# Contact
+# 📬 Contact
 
 Please contact us at 1) for code problems, create a GitHub issue; 2) for paper problems, email xmlee97@gmail.com
