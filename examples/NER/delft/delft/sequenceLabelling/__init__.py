@@ -1,0 +1,1 @@
+from delft.sequenceLabelling.wrapper import Sequence
