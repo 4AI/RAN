@@ -55,7 +55,7 @@ class RanNet:
                  return_sequences: bool = True,
                  return_cell: bool = True,
                  mlm_softmax: bool = False,
-                 apply_final_cell_transform: bool = True,
+                 apply_cell_transform: bool = True,
                  apply_lm_mask: bool = False,
                  apply_seq2seq_mask: bool = False,
                  apply_memory_review: bool = True,
@@ -63,7 +63,7 @@ class RanNet:
         self.params = params
         self.return_sequences = return_sequences
         self.return_cell = return_cell
-        self.apply_final_cell_transform = apply_final_cell_transform
+        self.apply_cell_transform = apply_cell_transform
         self.prefix = prefix
         self.inputs = None
 
@@ -159,7 +159,7 @@ class RanNet:
         for kernel in self.rans:
             outputs, cell = kernel([outputs, x_mask], cell=cell, segments=segments)
 
-        if self.return_cell and self.apply_final_cell_transform:
+        if self.return_cell and self.apply_cell_transform:
             cell = L.Lambda(lambda x: K.expand_dims(x, axis=1))(cell)
             cell = L.Dense(self.params.embedding_size,
                            kernel_initializer=self.initializer,
@@ -425,7 +425,7 @@ class RanNetForLM(RanNet):
         super().__init__(params,
                          return_sequences=True,
                          return_cell=return_cell,
-                         apply_final_cell_transform=False,
+                         apply_cell_transform=False,
                          mlm_softmax=True,
                          apply_lm_mask=True,
                          apply_seq2seq_mask=False,
@@ -447,7 +447,7 @@ class RanNetForAdaptiveLM(RanNet):
                          return_sequences=True,
                          return_cell=return_cell,
                          mlm_softmax=False,
-                         apply_final_cell_transform=False,
+                         apply_cell_transform=False,
                          apply_lm_mask=True,
                          apply_seq2seq_mask=False,
                          prefix=prefix)
@@ -508,7 +508,7 @@ class RanNetForSeq2Seq(RanNet):
                          return_sequences=True,
                          return_cell=False,
                          mlm_softmax=True,
-                         apply_final_cell_transform=False,
+                         apply_cell_transform=False,
                          apply_lm_mask=False,
                          apply_seq2seq_mask=True,
                          prefix=prefix)
@@ -522,7 +522,7 @@ class RanNetForMLMPretrain(RanNet):
         super().__init__(params,
                          return_cell=False,
                          return_sequences=True,
-                         apply_final_cell_transform=False,
+                         apply_cell_transform=False,
                          **kwargs)
 
     def __call__(self) -> Tuple[Models, Models, Dict]:
