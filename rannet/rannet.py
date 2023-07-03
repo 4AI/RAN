@@ -5,7 +5,7 @@
 
 import json
 import itertools
-from typing import Dict, Union, Optional, Callable, Tuple, List
+from typing import Dict, Union, Optional, Callable, Tuple, List, Any
 
 import tensorflow as tf
 from langml import keras, L, K, TF_KERAS
@@ -34,7 +34,8 @@ class RanNetParams:
         self.head_num = config.get('head_num', 8)
         self.window_size = config.get('window_size', 256)
         self.min_window_size = config.get('min_window_size', 16)
-        self.cell_initializer_type = config.get('cell_initializer_type', 'zero')
+        self.cell_initializer_type = config.get('cell_initializer_type', 'zero')  # zero | mean
+        self.cell_pooling = config.get('cell_pooling', 'last')  # last | mean | max
         self.embedding_initializer = config.get('embedding_initializer', 'truncated_normal')
         self.kernel_initializer = config.get('kernel_initializer', 'truncated_normal')
         self.kernel_initializer_range = config.get('kernel_initializer_range', 0.02)
@@ -53,19 +54,30 @@ class RanNet:
     def __init__(self,
                  params: RanNetParams,
                  return_sequences: bool = True,
-                 return_cell: bool = True,
+                 return_gpc: bool = True,
+                 return_history: bool = True,
                  mlm_softmax: bool = False,
                  apply_cell_transform: bool = True,
                  apply_lm_mask: bool = False,
                  apply_seq2seq_mask: bool = False,
                  apply_memory_review: bool = True,
+                 cell_initializer_type: str = 'zero',
+                 cell_pooling: str = 'last',
+                 min_window_size: Optional[int] = None,
+                 window_size: Optional[int] = None,
                  prefix: str = ''):
         self.params = params
         self.return_sequences = return_sequences
-        self.return_cell = return_cell
+        self.return_gpc = return_gpc
+        self.return_history = return_history
         self.apply_cell_transform = apply_cell_transform
+        self.cell_initializer_type = cell_initializer_type
+        self.cell_pooling = cell_pooling
+        self.min_window_size = min_window_size
+        self.window_size = window_size
         self.prefix = prefix
         self.inputs = None
+        self.__var_status = {}
 
         if self.params.kernel_initializer == 'truncated_normal':
             self.initializer = keras.initializers.TruncatedNormal(
@@ -92,15 +104,16 @@ class RanNet:
             RAN(
                 self.params.head_num,
                 head_size=self.params.head_size,
-                window_size=self.params.window_size,
-                min_window_size=self.params.min_window_size,
+                window_size=self.window_size or self.params.window_size,
+                min_window_size=self.min_window_size or self.params.min_window_size,
                 activation='swish',
                 kernel_initializer=self.initializer,
                 apply_lm_mask=apply_lm_mask,
                 apply_seq2seq_mask=apply_seq2seq_mask,
                 apply_memory_review=apply_memory_review,
                 dropout_rate=self.params.dropout_rate,
-                cell_initializer_type=self.params.cell_initializer_type,
+                cell_initializer_type=self.cell_initializer_type or self.params.cell_initializer_type,
+                cell_pooling=self.cell_pooling or self.params.cell_pooling,
                 name=self.get_weight_name(f'RAN-{i}')
             )
             for i in range(self.params.ran_layers)
@@ -155,11 +168,11 @@ class RanNet:
         x = self.embedding_layernorm(x)
         x = self.embedding_dropout(x)
 
-        outputs, cell = x, None
+        outputs = x
         for kernel in self.rans:
             outputs, cell = kernel([outputs, x_mask], cell=cell, segments=segments)
 
-        if self.return_cell and self.apply_cell_transform:
+        if self.return_gpc and self.apply_cell_transform:
             cell = L.Lambda(lambda x: K.expand_dims(x, axis=1))(cell)
             cell = L.Dense(self.params.embedding_size,
                            kernel_initializer=self.initializer,
@@ -178,7 +191,7 @@ class RanNet:
             cell = L.Lambda(lambda x: x[0] + x[1], name='Output-Cell-Fuse')([cell, max_pooling])
             cell = L.Lambda(lambda x: K.squeeze(x, axis=1), name='Output-Cell-Squeeze')(cell)
         if self.return_sequences:
-            if self.return_cell:
+            if self.return_gpc:
                 return [outputs, cell]
             return outputs
         return cell
@@ -198,6 +211,11 @@ class RanNet:
             seq2seq: bool. Set seq2seq model. if seq2seq is True, segment information is required to input.
                 Segment is used to compute prefix causal mask. Defaults to False.
         """
+        self.__var_status['with_cell'] = with_cell
+        self.__var_status['with_mlm'] = with_mlm
+        self.__var_status['return_model'] = return_model
+        self.__var_status['seq2seq'] = seq2seq
+
         if seq2seq:
             assert with_mlm, "seq2seq only works for mlm model, please specify `with_mlm=True`"
         if with_mlm:
@@ -213,7 +231,7 @@ class RanNet:
                 return keras.Model(self.inputs, outputs)
             return outputs
 
-        output = outputs[0] if self.return_cell else outputs
+        output = outputs[0] if self.return_gpc else outputs
         mlm = self.mlm_hidden(output)
         mlm = self.mlm_matching([mlm, embedding_weights])
 
@@ -287,6 +305,9 @@ class RanNet:
             'MLM-Matching': [f'{prefix}/mlm-matching/bias'],
         })
         return mapping
+
+    def check_var_status(self, key: str, val: Any) -> bool:
+        return self.__var_status.get(key) == val
 
     @staticmethod
     def fields_to_check():
@@ -370,6 +391,7 @@ class RanNet:
                     window_size: Optional[int] = None,
                     cell_initializer_type: Optional[str] = None,
                     with_mlm: bool = False,
+                    with_cell: bool = False,
                     **kwargs) -> Tuple[object, Models]:
         """ Load pretrained RanNet model
         Args:
@@ -387,7 +409,7 @@ class RanNet:
         if cell_initializer_type is not None:
             params.cell_initializer_type = cell_initializer_type
         rannet = RanNet(params, **kwargs)
-        model = rannet(with_mlm=with_mlm)
+        model = rannet(with_mlm=with_mlm, with_cell=with_cell)
         model = rannet.restore_weights_from_checkpoint(model, checkpoint_path, ran_layers=params.ran_layers)
         return rannet, model
 
@@ -420,11 +442,11 @@ class RanNet:
 class RanNetForLM(RanNet):
     def __init__(self,
                  params: RanNetParams,
-                 return_cell: bool = False,
+                 return_gpc: bool = False,
                  prefix: str = ''):
         super().__init__(params,
                          return_sequences=True,
-                         return_cell=return_cell,
+                         return_gpc=return_gpc,
                          apply_cell_transform=False,
                          mlm_softmax=True,
                          apply_lm_mask=True,
@@ -441,11 +463,11 @@ class RanNetForAdaptiveLM(RanNet):
                  cutoffs: List[int],
                  div_val: int = 1,
                  output_dropout_rate: float = 0.0,
-                 return_cell: bool = False,
+                 return_gpc: bool = False,
                  prefix: str = ''):
         super().__init__(params,
                          return_sequences=True,
-                         return_cell=return_cell,
+                         return_gpc=return_gpc,
                          mlm_softmax=False,
                          apply_cell_transform=False,
                          apply_lm_mask=True,
@@ -506,7 +528,7 @@ class RanNetForSeq2Seq(RanNet):
                  prefix: str = ''):
         super().__init__(params,
                          return_sequences=True,
-                         return_cell=False,
+                         return_gpc=False,
                          mlm_softmax=True,
                          apply_cell_transform=False,
                          apply_lm_mask=False,
@@ -520,7 +542,7 @@ class RanNetForSeq2Seq(RanNet):
 class RanNetForMLMPretrain(RanNet):
     def __init__(self, params: RanNetParams, **kwargs):
         super().__init__(params,
-                         return_cell=False,
+                         return_gpc=False,
                          return_sequences=True,
                          apply_cell_transform=False,
                          **kwargs)

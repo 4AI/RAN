@@ -432,7 +432,8 @@ def ran(inputs: Tensors,
         concat_layernorm=None,
         memory_review=None,
         dropout_rate: float = 0.0,
-        min_window_size: int = 16):
+        min_window_size: int = 16,
+        cell_pooling: str = 'last'):
     """ Core implementation
     """
 
@@ -609,7 +610,14 @@ def ran(inputs: Tensors,
         outputs = memory_review([outputs, cells, cells], mask=mask)
     else:
         outputs = memory_review(outputs)
-    cell = K.squeeze(cell, axis=1)  # (B, D)
+    if cell_pooling == 'last':
+        cell = K.squeeze(cell, axis=1)  # (B, D)
+    elif cell_pooling == 'mean':
+        cell = K.mean(cells, axis=1)
+    elif cell_pooling == 'max':
+        cell = K.max(cells, axis=1)
+    else:
+        raise ValueError('Please specify `cell_pooling` from [`last`, `mean`, `max`]')
     return outputs, cell
 
 
@@ -626,6 +634,7 @@ class RAN(L.Layer):
                  apply_memory_review: bool = True,
                  dropout_rate: float = 0.0,
                  cell_initializer_type: str = 'zero',
+                 cell_pooling: str = 'last',
                  **kwargs):
         super(RAN, self).__init__(**kwargs)
         assert window_size > min_window_size, "window_size must be greater than min_window_size"
@@ -640,7 +649,7 @@ class RAN(L.Layer):
         self.apply_memory_review = apply_memory_review
         self.dropout_rate = dropout_rate
         self.cell_initializer_type = cell_initializer_type
-
+        self.cell_pooling = cell_pooling
         self.supports_masking = True
 
     def get_config(self):
@@ -656,6 +665,7 @@ class RAN(L.Layer):
             "apply_memory_review": self.apply_memory_review,
             "dropout_rate": self.dropout_rate,
             "cell_initializer_type": self.cell_initializer_type,
+            "cell_pooling": self.cell_pooling
         }
         base_config = super(RAN, self).get_config()
         return dict(base_config, **config)
@@ -738,6 +748,7 @@ class RAN(L.Layer):
             memory_review=self.memory_review,
             dropout_rate=self.dropout_rate,
             min_window_size=self.min_window_size,
+            cell_pooling=self.cell_pooling
         )
         return [outputs, cell]
 
