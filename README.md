@@ -54,7 +54,7 @@ python -m pip install git+https://github.com/4AI/RAN.git
 
 *Extract semantic feature*
 
-set `apply_cell_transform=False` to extract semantic feature.
+set `return_sequences=False` to extract semantic feature.
 
 ```python
 import numpy as np
@@ -70,7 +70,8 @@ rannet, rannet_model = RanNet.load_rannet(
     config_path=config_path,
     checkpoint_path=ckpt_path,
     return_sequences=False,
-    apply_cell_transform=False
+    apply_cell_transform=False,
+    cell_pooling='mean'
 )
 text = 'input text'
 tok = tokenizer.encode(text)
