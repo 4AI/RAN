@@ -109,7 +109,7 @@ config_path = 'pretrained/config.json'
 tokenizer = RanNetWordPieceTokenizer(vocab_path, lowercase=True)
 
 rannet, rannet_model = RanNet.load_rannet(
-    config_path=config_path, checkpoint_path=ckpt_path, return_cell=False)
+    config_path=config_path, checkpoint_path=ckpt_path, return_gpc=False)
 output = rannet_model.output  # (B, L, D)
 rannet_model.summary()
 ```
