@@ -63,6 +63,8 @@ class RanNet:
                  apply_memory_review: bool = True,
                  cell_initializer_type: str = 'zero',
                  cell_pooling: str = 'last',
+                 min_window_size: Optional[int] = None,
+                 window_size: Optional[int] = None,
                  prefix: str = ''):
         self.params = params
         self.return_sequences = return_sequences
@@ -71,6 +73,8 @@ class RanNet:
         self.apply_cell_transform = apply_cell_transform
         self.cell_initializer_type = cell_initializer_type
         self.cell_pooling = cell_pooling
+        self.min_window_size = min_window_size
+        self.window_size = window_size
         self.prefix = prefix
         self.inputs = None
         self.__var_status = {}
@@ -100,8 +104,8 @@ class RanNet:
             RAN(
                 self.params.head_num,
                 head_size=self.params.head_size,
-                window_size=self.params.window_size,
-                min_window_size=self.params.min_window_size,
+                window_size=self.window_size or self.params.window_size,
+                min_window_size=self.min_window_size or self.params.min_window_size,
                 activation='swish',
                 kernel_initializer=self.initializer,
                 apply_lm_mask=apply_lm_mask,
@@ -164,7 +168,7 @@ class RanNet:
         x = self.embedding_layernorm(x)
         x = self.embedding_dropout(x)
 
-        outputs, cell = x, None
+        outputs = x
         for kernel in self.rans:
             outputs, cell = kernel([outputs, x_mask], cell=cell, segments=segments)
 
