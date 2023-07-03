@@ -147,7 +147,7 @@ class RanNet:
         x = x_in
         self.inputs = [x_in]
         if with_cell:
-            cell_in = L.Input(name=self.get_weight_name('Input-Cell'), shape=(self.params.embedding_size, ))
+            cell_in = L.Input(name=self.get_weight_name('Input-GPC'), shape=(self.params.embedding_size, ))
             self.inputs.append(cell_in)
             cell = cell_in
         else:
