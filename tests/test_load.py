@@ -8,7 +8,6 @@ import numpy as np
 import gdown
 
 
-
 RANNET_NAME = 'rannet-small-v2-cn-uncased-general-model.zip'
 RANNET_DIR = 'rannet-small-v2-cn-uncased-general-model'
 
