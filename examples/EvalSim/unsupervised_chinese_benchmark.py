@@ -102,26 +102,26 @@ def evaluate(base_dir, dataset, name,
         print(f'dataset={name}, split={split}, corrcoef={corrcoef}')
 
 
-def build_model(base_dir, min_window_size=16, window_size=32, strategy='gpc+first-last-avg'):
+def build_model(base_dir, min_window_size=16, window_size=32, strategy='cell+first-last-avg'):
     _, rannet_model = RanNet.load_rannet(
         config_path=f'{base_dir}/config.json',
         checkpoint_path=f'{base_dir}/model.ckpt',
         return_sequences=True,
-        return_gpc=True,
+        return_cell=True,
         apply_cell_transform=False,
         window_size=window_size,
         min_window_size=min_window_size,
         cell_pooling='mean'
     )
 
-    if strategy == 'gpc':
+    if strategy == 'cell':
         output = rannet_model.output[1]
-    elif strategy == 'first-last-gpc-avg':
+    elif strategy == 'first-last-cell-avg':
         output = L.Average()([
             rannet_model.get_layer('RAN-0').output[1],
             rannet_model.get_layer('RAN-1').output[1]
         ])
-    elif strategy == 'gpc+first-last-maxpool-avg':
+    elif strategy == 'cell+first-last-maxpool-avg':
         first_output = L.Lambda(lambda x: x[0] + x[1])([
             L.GlobalMaxPooling1D()(rannet_model.get_layer('RAN-0').output[0]),
             rannet_model.get_layer('RAN-0').output[1],
@@ -131,7 +131,7 @@ def build_model(base_dir, min_window_size=16, window_size=32, strategy='gpc+firs
             rannet_model.get_layer('RAN-1').output[1],
         ])
         output = L.Average()([first_output, final_output])
-    elif strategy == 'gpc+first-last-avgpool-avg':
+    elif strategy == 'cell+first-last-avgpool-avg':
         first_output = L.Average()([
             rannet_model.get_layer('RAN-0').output[1],
             rannet_model.get_layer('RAN-1').output[1],
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     base_dir = '../../../RAN-Pretrained-Models/rannet-base-v2-cn-uncased-general-model'
     '''
     LCQMC = load_dataset("shibing624/nli_zh", "LCQMC")
-    evaluate(base_dir, LCQMC, 'LCQMC', min_window_size=10, window_size=20, strategy='gpc+first-last-avgpool-avg', apply_whitening=False, n_components=512)
+    evaluate(base_dir, LCQMC, 'LCQMC', min_window_size=10, window_size=20, strategy='cell+first-last-avgpool-avg', apply_whitening=False, n_components=512)
     '''
     BQ = load_dataset("shibing624/nli_zh", "BQ")
     evaluate(base_dir, BQ, 'BQ', min_window_size=10, window_size=32,
@@ -168,5 +168,5 @@ if __name__ == '__main__':
              n_components=32)  # best: first-last-avgpool-avg
     '''
     ATEC = load_dataset("shibing624/nli_zh", "ATEC")
-    evaluate(base_dir, ATEC, 'ATEC', min_window_size=10, window_size=20, strategy='gpc+first-last-avgpool-avg', apply_whitening=False, n_components=128)
+    evaluate(base_dir, ATEC, 'ATEC', min_window_size=10, window_size=20, strategy='cell+first-last-avgpool-avg', apply_whitening=False, n_components=128)
     '''
