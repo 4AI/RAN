@@ -141,12 +141,21 @@ output, cell = ran(X)
 If you use our code in your research, please cite our work:
 
 ```
-@inproceedings{li-etal-2023-ran,
+@inproceedings{li-etal-2023-recurrent,
     title = "Recurrent Attention Networks for Long-text Modeling",
-    author = "Li, Xianming and Li, Zongxi and Luo, Xiaotian and Xie, Haoran and Lee, Xing and Zhao, Yingbin and Wang, Fu Lee and Li, Qing",
+    author = "Li, Xianming  and
+      Li, Zongxi  and
+      Luo, Xiaotian  and
+      Xie, Haoran  and
+      Lee, Xing  and
+      Zhao, Yingbin  and
+      Wang, Fu Lee  and
+      Li, Qing",
     booktitle = "Findings of the Association for Computational Linguistics: ACL 2023",
+    month = jul,
     year = "2023",
-    publisher = "Association for Computational Linguistics"
+    publisher = "Association for Computational Linguistics",
+    pages = "3006--3019",
 }
 ```
 
