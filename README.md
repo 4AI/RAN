@@ -21,6 +21,10 @@
 </h4>
 
 
+<center>
+<img src='docs/framework.png' alt='The framework of RAN' style='width: 520px;' />
+</center>
+
 
 # ⬇️ Installation
 
