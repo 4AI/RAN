@@ -10,7 +10,7 @@ from langml import keras, L, K
 from langml.layers import SineCosinePositionEmbedding, LayerNorm
 from langml.tensor_typing import Tensors, Initializer, Activation
 
-from rannet.utils import triangular_causal_mask, prefix_causal_mask, standard_normalize, mean
+from rannet.utils import triangular_causal_mask, prefix_causal_mask, standard_normalize
 
 
 def align(tensor: Tensors, axes: int, ndim: Optional[int] = None) -> Tensors:
@@ -421,7 +421,6 @@ def ran(inputs: Tensors,
         encode_attn: PosMultiHeadAttention,
         cell: Optional[Tensors] = None,
         segments: Optional[Tensors] = None,
-        cell_initializer_type: str = 'zero',
         cell_initializer: Optional[Callable] = None,
         cell_glu: Optional[Callable] = None,
         cell_residual_layernorm: Optional[Callable] = None,
@@ -488,23 +487,21 @@ def ran(inputs: Tensors,
 
         # init cell
         if cell is None:
-            if cell_initializer_type == 'mean':
-                # initialize cell with mean pooling
-                cell = mean(inputs, mask, axis=1, keepdims=True)
-            elif cell_initializer_type == 'zero':
-                # initialize cell with zeros
-                cell = K.zeros_like(inputs[:, 0])
-                cell = K.expand_dims(cell, axis=1)
-            else:
-                raise ValueError(f'invalid assignment {cell_initializer_type}, '
-                                 'please specify cell_initializer_type from [`mean`, `zero`]')
+            # initialize cell with zeros
+            cell = K.zeros_like(inputs[:, 0])
+            cell = K.expand_dims(cell, axis=1)
         else:
             if K.ndim(cell) == 2:
                 cell = K.expand_dims(cell, axis=1)
-        # with weight
-        cell = cell_initializer(cell)
+
+        cell_t = cell_initializer(cell)
         if dropout_rate > 0:
-            cell = L.Dropout(dropout_rate)(cell)
+            cell_t = L.Dropout(dropout_rate)(cell_t)
+        cell = tf.cond(
+            tf.math.count_nonzero(cell) == 0,
+            lambda: cell_t,  # apply dense layer
+            lambda: cell
+        )
 
         # slice window input
         current_input = inputs[:, ind[0]: ind[1]]  # (B, W, D)
@@ -610,15 +607,16 @@ def ran(inputs: Tensors,
         outputs = memory_review([outputs, cells, cells], mask=mask)
     else:
         outputs = memory_review(outputs)
+    last_cell = K.squeeze(cell, axis=1)  # (B, D)
     if cell_pooling == 'last':
-        cell = K.squeeze(cell, axis=1)  # (B, D)
+        cell = last_cell
     elif cell_pooling == 'mean':
         cell = K.mean(cells, axis=1)
     elif cell_pooling == 'max':
         cell = K.max(cells, axis=1)
     else:
         raise ValueError('Please specify `cell_pooling` from [`last`, `mean`, `max`]')
-    return outputs, cell
+    return last_cell, outputs, cell
 
 
 class RAN(L.Layer):
@@ -633,7 +631,6 @@ class RAN(L.Layer):
                  apply_seq2seq_mask: bool = False,
                  apply_memory_review: bool = True,
                  dropout_rate: float = 0.0,
-                 cell_initializer_type: str = 'zero',
                  cell_pooling: str = 'last',
                  **kwargs):
         super(RAN, self).__init__(**kwargs)
@@ -648,7 +645,6 @@ class RAN(L.Layer):
         self.apply_seq2seq_mask = apply_seq2seq_mask
         self.apply_memory_review = apply_memory_review
         self.dropout_rate = dropout_rate
-        self.cell_initializer_type = cell_initializer_type
         self.cell_pooling = cell_pooling
         self.supports_masking = True
 
@@ -664,7 +660,6 @@ class RAN(L.Layer):
             "apply_seq2seq_mask": self.apply_seq2seq_mask,
             "apply_memory_review": self.apply_memory_review,
             "dropout_rate": self.dropout_rate,
-            "cell_initializer_type": self.cell_initializer_type,
             "cell_pooling": self.cell_pooling
         }
         base_config = super(RAN, self).get_config()
@@ -731,12 +726,11 @@ class RAN(L.Layer):
         mask = mask[0] if isinstance(mask, list) else mask
         assert mask is not None, "mask should not be None!"
 
-        outputs, cell = ran(
+        last_cell, outputs, cell = ran(
             inputs,
             self.encode_attn,
             cell=cell,
             segments=segments,
-            cell_initializer_type=self.cell_initializer_type,
             cell_initializer=self.cell_initializer,
             cell_glu=self.cell_glu,
             cell_residual_layernorm=self.cell_residual_layernorm,
@@ -750,14 +744,14 @@ class RAN(L.Layer):
             min_window_size=self.min_window_size,
             cell_pooling=self.cell_pooling
         )
-        return [outputs, cell]
+        return [last_cell, outputs, cell]
 
     def compute_output_shape(self,
                              input_shape: Union[Tensors, List[Tensors]]) -> Union[Tensors, Tuple[Tensors, Tensors]]:
         if not isinstance(input_shape, list):
             input_shape = [input_shape]
         cell_shape = (input_shape[0][0], input_shape[0][-1])
-        return [input_shape[0], cell_shape]
+        return [cell_shape, input_shape[0], cell_shape]
 
     @staticmethod
     def get_custom_objects() -> Dict:

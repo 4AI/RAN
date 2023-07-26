@@ -34,7 +34,6 @@ class RanNetParams:
         self.head_num = config.get('head_num', 8)
         self.window_size = config.get('window_size', 256)
         self.min_window_size = config.get('min_window_size', 16)
-        self.cell_initializer_type = config.get('cell_initializer_type', 'zero')  # zero | mean
         self.cell_pooling = config.get('cell_pooling', 'last')  # last | mean | max
         self.embedding_initializer = config.get('embedding_initializer', 'truncated_normal')
         self.kernel_initializer = config.get('kernel_initializer', 'truncated_normal')
@@ -55,13 +54,12 @@ class RanNet:
                  params: RanNetParams,
                  return_sequences: bool = True,
                  return_cell: bool = True,
-                 return_history: bool = True,
+                 return_history: bool = False,
                  mlm_softmax: bool = False,
                  apply_cell_transform: bool = True,
                  apply_lm_mask: bool = False,
                  apply_seq2seq_mask: bool = False,
                  apply_memory_review: bool = True,
-                 cell_initializer_type: str = 'zero',
                  cell_pooling: str = 'last',
                  min_window_size: Optional[int] = None,
                  window_size: Optional[int] = None,
@@ -71,7 +69,6 @@ class RanNet:
         self.return_cell = return_cell
         self.return_history = return_history
         self.apply_cell_transform = apply_cell_transform
-        self.cell_initializer_type = cell_initializer_type
         self.cell_pooling = cell_pooling
         self.min_window_size = min_window_size
         self.window_size = window_size
@@ -112,7 +109,6 @@ class RanNet:
                 apply_seq2seq_mask=apply_seq2seq_mask,
                 apply_memory_review=apply_memory_review,
                 dropout_rate=self.params.dropout_rate,
-                cell_initializer_type=self.cell_initializer_type or self.params.cell_initializer_type,
                 cell_pooling=self.cell_pooling or self.params.cell_pooling,
                 name=self.get_weight_name(f'RAN-{i}')
             )
@@ -169,8 +165,9 @@ class RanNet:
         x = self.embedding_dropout(x)
 
         outputs = x
+        last_cell = cell
         for kernel in self.rans:
-            outputs, cell = kernel([outputs, x_mask], cell=cell, segments=segments)
+            last_cell, outputs, cell = kernel([outputs, x_mask], cell=last_cell, segments=segments)
 
         if self.return_cell and self.apply_cell_transform:
             cell = L.Lambda(lambda x: K.expand_dims(x, axis=1))(cell)
@@ -190,11 +187,15 @@ class RanNet:
             # ct = p + g(c), use maxpooling to enhance semantic feature
             cell = L.Lambda(lambda x: x[0] + x[1], name='Output-Cell-Fuse')([cell, max_pooling])
             cell = L.Lambda(lambda x: K.squeeze(x, axis=1), name='Output-Cell-Squeeze')(cell)
+
+        ret = []
         if self.return_sequences:
-            if self.return_cell:
-                return [outputs, cell]
-            return outputs
-        return cell
+            ret.append(outputs)
+        if self.return_cell:
+            ret.append(cell)
+        if self.return_history:
+            ret.append(last_cell)
+        return ret
 
     def __call__(self,
                  with_cell: bool = False,
@@ -231,7 +232,7 @@ class RanNet:
                 return keras.Model(self.inputs, outputs)
             return outputs
 
-        output = outputs[0] if self.return_cell else outputs
+        output = outputs[0]
         mlm = self.mlm_hidden(output)
         mlm = self.mlm_matching([mlm, embedding_weights])
 
@@ -389,7 +390,6 @@ class RanNet:
     def load_rannet(config_path: str,
                     checkpoint_path: str,
                     window_size: Optional[int] = None,
-                    cell_initializer_type: Optional[str] = None,
                     with_mlm: bool = False,
                     with_cell: bool = False,
                     **kwargs) -> Tuple[object, Models]:
@@ -406,8 +406,6 @@ class RanNet:
         params = RanNetParams.from_file(config_path)
         if window_size is not None:
             params.window_size = window_size
-        if cell_initializer_type is not None:
-            params.cell_initializer_type = cell_initializer_type
         rannet = RanNet(params, **kwargs)
         model = rannet(with_mlm=with_mlm, with_cell=with_cell)
         model = rannet.restore_weights_from_checkpoint(model, checkpoint_path, ran_layers=params.ran_layers)
