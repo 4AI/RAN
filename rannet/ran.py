@@ -498,7 +498,7 @@ def ran(inputs: Tensors,
         if dropout_rate > 0:
             cell_t = L.Dropout(dropout_rate)(cell_t)
         cell = tf.cond(
-            tf.math.count_nonzero(cell) == 0,
+            tf.equal(tf.math.count_nonzero(cell), 0),
             lambda: cell_t,  # apply dense layer
             lambda: cell
         )
