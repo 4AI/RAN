@@ -46,10 +46,29 @@ python -m pip install git+https://github.com/4AI/RAN.git
 
 ## 🏛️ Pretrained Models
 
+### V3 Models
+
+🎯 compatible with: `rannet>0.2.1`
+
+| Lang | Google Drive | Baidu NetDrive |
+|------|--------------|----------------|
+| EN   |    [base](https://drive.google.com/file/d/1CO1M_57U506_3mDBqtGo-5b1XXNpONln/view?usp=sharing)          |        [base](https://pan.baidu.com/s/1Z2wODILsIeZ3i8_9GEpl2g)\[code: udts\]        |
+
+Chinese Models are still pretraining...
+
+
+### V2 Models
+
+🎯 compatible with: `rannet<=0.2.1`
+
 | Lang | Google Drive | Baidu NetDrive |
 |------|--------------|----------------|
 | EN   |    [base](https://drive.google.com/file/d/1mRabw0Hy9T5_EWbZshD6Uk-bvauNzG9R/view?usp=sharing)          |        [base](https://pan.baidu.com/s/18uhAkY46aIcy4ncwzXp5mA)\[code: djkj\]        |
 | CN   |   [base](https://drive.google.com/file/d/1_gmrulSU-ln_jElc2hktPTTQDzaeG1wU/view?usp=sharing)  \| [small](https://drive.google.com/file/d/1D-FCxY_UMwZCkvcwl6hkRcl6VnCzRGIj/view?usp=sharing)         |        [base](https://pan.baidu.com/s/1WIcePgmqb7Ox0w1qigWQ_w)\[code: e47w\]  \| [small](https://pan.baidu.com/s/17DAboL9w0mArcBBuiy3tGg)\[code: mdmg\]        |
+
+### V1 Models
+
+V1 models are not open.
 
 
 # 🚀 Quick Tour
@@ -138,6 +157,39 @@ ran = RAN(head_num=8,
           dropout_rate=0.0,
           cell_initializer_type='zero')
 output, cell = ran(X)
+```
+
+## w/ history
+
+```python
+import numpy as np
+from rannet import RanNet, RanNetWordPieceTokenizer
+
+
+vocab_path = 'pretrained/vocab.txt'
+ckpt_path = 'pretrained/model.ckpt'
+config_path = 'pretrained/config.json'
+tokenizer = RanNetWordPieceTokenizer(vocab_path, lowercase=True)
+
+rannet, rannet_model = RanNet.load_rannet(
+    config_path=config_path,
+    checkpoint_path=ckpt_path,
+    return_sequences=False,
+    apply_cell_transform=False,
+    return_history=True,  # return history
+    cell_pooling='mean',
+    with_cell=True,  # with cell input
+)
+rannet_model.summary()
+
+text = 'sentence 1'
+tok = tokenizer.encode(text)
+init_cell = np.zeros((1, 768))  # 768 is embedding size
+vec, history = rannet_model.predict([np.array([tok.ids]), init_cell])
+
+text2 = 'sentence 2'
+tok = tokenizer.encode(text2)
+vec2, history = rannet_model.predict([np.array([tok.ids]), history])  # input history of sentence 1
 ```
 
 # 📚 Citation
