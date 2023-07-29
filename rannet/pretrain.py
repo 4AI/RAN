@@ -12,7 +12,6 @@ import random
 
 import click
 import tensorflow as tf
-# import tensorflow_addons as tfa
 from langml import keras, TF_KERAS, log
 from tqdm import tqdm
 from boltons.iterutils import chunked_iter
@@ -20,12 +19,6 @@ from boltons.iterutils import chunked_iter
 from rannet import RanNetForMLMPretrain, RanNetParams
 from rannet.dataloader import DataLoader, BertMlmDataLoader
 from rannet.tokenizer import RanNetWordPieceTokenizer
-
-from bert4keras.optimizers import Adam
-from bert4keras.optimizers import extend_with_weight_decay
-from bert4keras.optimizers import extend_with_layer_adaptation
-from bert4keras.optimizers import extend_with_piecewise_linear_lr
-from bert4keras.optimizers import extend_with_gradient_accumulation
 
 
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -162,7 +155,6 @@ def single_corpus(vocab_path: str, max_length: int, chunk_size: int, corpus_path
 @click.option('--batch_size', type=int, default=32, help='Specify batch size. Defaults to 32')
 @click.option('--learning_rate', type=float, default=1e-3, help='Specify learning rate. Defaults to 1e-3')
 @click.option('--weight_decay', type=float, default=0.01, help='Specify weight decay. Defaults to 1e-2')
-@click.option('--global_clipnorm', type=float, default=1.0, help='Specify global_clipnorm. Defaults to 1.0')
 @click.option('--sequence_length', type=int, default=512, help='Specify sequence length. Defaults to 512')
 @click.option('--num_warmup_steps', type=int, default=3000, help='Specify warmup steps. Defaults to 3000')
 @click.option('--num_train_steps', type=int, default=125000, help='Specify training steps. Defaults to 125000')
@@ -176,9 +168,8 @@ def single_corpus(vocab_path: str, max_length: int, chunk_size: int, corpus_path
               help='0 = silent, 1 = progress bar, 2 = one line per epoch.')
 def pretrain(corpus_path: str, config_path: str, log_path: str, base_ckpt_path: str, save_dir: str,
              record_info_path: str, batch_size: int, learning_rate: float, weight_decay: float,
-             global_clipnorm: float, sequence_length: int, num_warmup_steps: int, num_train_steps: int,
-             ckpt_save_freq: int, gradient_accumulation_steps: int, distributed: bool,
-             distributed_strategy: str, verbose: int):
+             sequence_length: int, num_warmup_steps: int, num_train_steps: int, ckpt_save_freq: int,
+             gradient_accumulation_steps: int, distributed: bool, distributed_strategy: str, verbose: int):
     # create save dir
     os.makedirs(save_dir, exist_ok=True)
 
@@ -196,7 +187,6 @@ def pretrain(corpus_path: str, config_path: str, log_path: str, base_ckpt_path: 
         rannet = RanNetForMLMPretrain(params)
         model = rannet()
 
-        '''
         lr_schedule = None if gradient_accumulation_steps < 2 else {
             num_warmup_steps * gradient_accumulation_steps: 1.0,
             num_train_steps * gradient_accumulation_steps: 0.0,
@@ -209,41 +199,7 @@ def pretrain(corpus_path: str, config_path: str, log_path: str, base_ckpt_path: 
                                      lr_schedule=lr_schedule,
                                      gradient_accumulation_steps=grad_accum_steps,
                                      metrics=['sparse_categorical_accuracy'])
-        '''
 
-        lr_schedule = None if gradient_accumulation_steps < 2 else {
-            num_warmup_steps * gradient_accumulation_steps: 1.0,
-            num_train_steps * gradient_accumulation_steps: 0.0,
-        }
-        grad_accum_steps = None if gradient_accumulation_steps < 2 else gradient_accumulation_steps
-        optimizer = extend_with_weight_decay(Adam)
-        optimizer = extend_with_layer_adaptation(optimizer)  # lambda
-        optimizer = extend_with_piecewise_linear_lr(optimizer)
-        optimizer_params = {
-            'learning_rate': learning_rate,
-            'weight_decay_rate': weight_decay,
-            'exclude_from_weight_decay': ['Norm', 'bias'],
-            'exclude_from_layer_adaptation': ['Norm', 'bias'],
-            'bias_correction': False,
-        }
-        if lr_schedule is not None:
-            optimizer_params['lr_schedule'] = lr_schedule
-        if grad_accum_steps is not None:
-            optimizer = extend_with_gradient_accumulation(optimizer)
-            optimizer_params['grad_accum_steps'] = grad_accum_steps
-        optimizer = optimizer(**optimizer_params)
-
-        '''
-        optimizer = tfa.optimizers.LAMB(
-            learning_rate=learning_rate,
-            weight_decay=weight_decay,
-            exclude_from_weight_decay=['LayerNorm', 'Norm', 'bias'],
-            exclude_from_layer_adaptation=['LayerNorm', 'Norm', 'bias'],
-            global_clipnorm=global_clipnorm,
-        )
-        '''
-        model.compile(optimizer=optimizer, loss=None, metrics=['sparse_categorical_accuracy'])
-        model.summary()
         if base_ckpt_path is not None:
             # restore the pre-trained model
             log.info(f'restore weights from {base_ckpt_path}')
