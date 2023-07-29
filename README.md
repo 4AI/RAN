@@ -1,4 +1,4 @@
-<h1 align='center'>RAN: Recurrent Attention Network</h1>
+<h1 align='center'><img src='assets/logo_min.png' style='height: 22px;'/> RAN: Recurrent Attention Network</h1>
 
 <h4 align='center'> 📢 This project is still in the works in order to make long document modeling easier.</h4>
 
