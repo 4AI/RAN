@@ -22,7 +22,7 @@
 
 
 <p align="center">
-<img src='docs/framework.png' alt='The framework of RAN' style='width: 520px;' />
+<img src='assets/framework.png' alt='The framework of RAN' style='width: 520px;' />
 </p>
 
 
