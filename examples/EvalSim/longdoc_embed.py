@@ -5,7 +5,7 @@ from rannet import RanNet, RanNetWordPieceTokenizer
 from scipy import spatial
 
 
-base_dir = '/Users/seanlee/Workspace/RAN-Pretrained-Models/rannet-base-v2-en-uncased-model'
+base_dir = '/Users/seanlee/Workspace/RAN-Pretrained-Models/rannet-base-v3-en-uncased-model'
 vocab_path = f'{base_dir}/vocab.txt'
 ckpt_path = f'{base_dir}/model.ckpt'
 config_path = f'{base_dir}/config.json'
@@ -29,7 +29,7 @@ tok = tokenizer.encode(text)
 x = np.array([tok.ids])
 vec, history = rannet_model.predict([x, np.zeros((1, embedding_size))])
 
-text = '''In Shakespeare's era (1564-1616), it was not profitable but very fashionable to write poetry. It also provided credibility to his talent as a writer and helped to enhance his social standing. It seems writing poetry was something he greatly enjoyed and did mainly for himself at times when he was not consumed with writing a play. Because of their more private nature, few poems, particularly long-form poems, have been published.'''
+text = 'hello world'
 tok = tokenizer.encode(text)
 x2 = np.array([tok.ids])
 vec2, _ = rannet_model.predict([x2, np.zeros((1, embedding_size))])
