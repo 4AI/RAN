@@ -1,2 +1,6 @@
 tensorflow
 rannet
+sphinx
+sphinx-rtd-theme
+sphinx-copybutton
+sphinx-autoapi
