@@ -16,7 +16,7 @@ with open('dev-requirements.txt', encoding='utf-8') as f:
 
 setup(
     name='rannet',
-    version='0.2.1',
+    version='0.3.0',
     description='Recurrent Attention Networks',
     long_description=readme,
     long_description_content_type="text/markdown",
