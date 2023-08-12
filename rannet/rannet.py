@@ -57,6 +57,7 @@ class RanNet:
                  return_history: bool = False,
                  mlm_softmax: bool = False,
                  apply_cell_transform: bool = True,
+                 cell_transform_pooling: str = 'max',
                  apply_lm_mask: bool = False,
                  apply_seq2seq_mask: bool = False,
                  apply_memory_review: bool = True,
@@ -69,6 +70,7 @@ class RanNet:
         self.return_cell = return_cell
         self.return_history = return_history
         self.apply_cell_transform = apply_cell_transform
+        self.cell_transform_pooling = cell_transform_pooling
         self.cell_pooling = cell_pooling
         self.min_window_size = min_window_size
         self.window_size = window_size
@@ -180,12 +182,17 @@ class RanNet:
                 self.params.embedding_size,
                 kernel_initializer=self.initializer,
                 name='Output-Cell-GLU')(cell)
-            max_pooling = L.Lambda(lambda x: K.max(x, axis=1, keepdims=True))(outputs)
-            max_pooling = L.Dense(self.params.embedding_size,
-                                  kernel_initializer=self.initializer,
-                                  name='Output-Pooling-Dense')(max_pooling)
-            # ct = p + g(c), use maxpooling to enhance semantic feature
-            cell = L.Lambda(lambda x: x[0] + x[1], name='Output-Cell-Fuse')([cell, max_pooling])
+            if self.cell_transform_pooling == 'max':
+                pooling = L.Lambda(lambda x: K.max(x, axis=1, keepdims=True))(outputs)
+            elif self.cell_transform_pooling == 'mean':
+                pooling = L.Lambda(lambda x: K.mean(x, axis=1, keepdims=True))(outputs)
+            else:
+                raise NotImplementedError('please specify cell_transform_pooling from [`max`, `mean`]')
+            pooling = L.Dense(self.params.embedding_size,
+                              kernel_initializer=self.initializer,
+                              name='Output-Pooling-Dense')(pooling)
+            # ct = p + g(c), use pooling to enhance semantic feature
+            cell = L.Lambda(lambda x: x[0] + x[1], name='Output-Cell-Fuse')([cell, pooling])
             cell = L.Lambda(lambda x: K.squeeze(x, axis=1), name='Output-Cell-Squeeze')(cell)
 
         ret = []
